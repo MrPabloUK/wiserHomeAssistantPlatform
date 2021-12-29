@@ -82,8 +82,8 @@ HVAC_MODE_WISER_TO_HASS = {
 }
 
 HVAC_MODE_HASS_TO_WISER = {
-    HVAC_MODE_AUTO: "Auto",
-    HVAC_MODE_HEAT: "Manual",
+#    HVAC_MODE_AUTO: "Auto",
+    HVAC_MODE_HEAT: "Auto", #originally manual
     HVAC_MODE_OFF: "Off",
 }
 
