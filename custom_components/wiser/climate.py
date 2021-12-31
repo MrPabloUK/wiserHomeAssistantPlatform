@@ -77,7 +77,7 @@ WISER_PRESETS.update(WISER_BOOST_PRESETS)
 
 HVAC_MODE_WISER_TO_HASS = {
         "Auto": HVAC_MODE_AUTO,
-        "Manual": HVAC_MODE_HEAT,
+        "Manual": HVAC_MODE_AUTO, #originally manual
         "Off": HVAC_MODE_OFF,
 }
 
