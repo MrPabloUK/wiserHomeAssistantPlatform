@@ -97,9 +97,12 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
             wiser_sensors.extend([
                 WiserLTSTempSensor(data, temp_device.id, sensor_type = "current_temp"),
                 WiserLTSTempSensor(data, temp_device.id, sensor_type = "current_target_temp"),
-                WiserLTSDemandSensor(data, temp_device.id, "room")
-            ])
+                WiserLTSDemandSensor(data, temp_device.id, "room"),
 
+            ])
+        return attrs
+
+                
         # Add heating channels demand
         for channel in data.wiserhub.heating_channels.all:
             wiser_sensors.append(
@@ -110,6 +113,12 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         if data.wiserhub.hotwater:
             wiser_sensors.append(
                 WiserLTSDemandSensor(data, 0, "hotwater")
+            )
+        
+        #Add humidity sensor
+        if self._sensor_type == "RoomStat":
+            wiser_sensors.append(
+                WiserLTSHumiditySensor(data, temp_device.id, sensor_type = "current_humidity")
             )
 
     async_add_entities(wiser_sensors, True)
