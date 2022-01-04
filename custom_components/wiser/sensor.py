@@ -97,12 +97,9 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
             wiser_sensors.extend([
                 WiserLTSTempSensor(data, temp_device.id, sensor_type = "current_temp"),
                 WiserLTSTempSensor(data, temp_device.id, sensor_type = "current_target_temp"),
-                WiserLTSDemandSensor(data, temp_device.id, "room"),
-
+                WiserLTSDemandSensor(data, temp_device.id, "room")
             ])
-        return attrs
 
-                
         # Add heating channels demand
         for channel in data.wiserhub.heating_channels.all:
             wiser_sensors.append(
@@ -114,11 +111,12 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
             wiser_sensors.append(
                 WiserLTSDemandSensor(data, 0, "hotwater")
             )
-        
+
         #Add humidity sensor
-        if self._sensor_type == "RoomStat":
-            wiser_sensors.append(
-                WiserLTSHumiditySensor(data, temp_device.id, sensor_type = "current_humidity")
+        if data.wiserhub.devices.roomstats:
+            for roomstat in data.wiserhub.devices.roomstats.all:
+                wiser_sensors.append(
+                    WiserLTSHumiditySensor(data, roomstat.id, sensor_type = "current_humidity")
             )
 
     async_add_entities(wiser_sensors, True)
@@ -608,6 +606,56 @@ class WiserLTSTempSensor(WiserSensor):
     @property
     def native_unit_of_measurement(self):
         return TEMP_CELSIUS
+
+    @property
+    def entity_category(self):
+        return 'diagnostic'
+
+
+class WiserLTSHumiditySensor(WiserSensor):
+    """Sensor for long term stats for room humidity"""
+
+    def __init__(self, data, id, sensor_type="RoomStat"):
+        """Initialise the operation mode sensor."""
+        super().__init__(data, id, f"LTS Humidity {data.wiserhub.rooms.get_by_id(id).name}")
+    
+    async def async_update(self):
+        """Fetch new state data for the sensor."""
+        await super().async_update()
+        self._data.wiserhub.devices.roomstats.get_by_id(self._device_id).current_humidity
+
+    @property
+    def device_info(self):
+        """Return device specific attributes."""
+        return {
+                "name": get_device_name(self._data, self._device_id,"room"),
+                "identifiers": {(DOMAIN, get_identifier(self._data, self._device_id,"room"))},
+                "manufacturer": MANUFACTURER,
+                "model": "Room",
+                "via_device": (DOMAIN, self._data.wiserhub.system.name),
+            }
+
+    @property
+    def icon(self):
+        """Return icon for sensor"""
+        return "mdi:water-percent"
+
+    @property
+    def device_class(self):
+        return SensorDeviceClass.HUMIDITY
+
+    @property
+    def state_class(self):
+        return SensorStateClass.MEASUREMENT
+
+    @property
+    def native_value(self):
+        """Return the state of the entity."""
+        return self._state
+
+    @property
+    def native_unit_of_measurement(self):
+        return PERCENTAGE
 
     @property
     def entity_category(self):
