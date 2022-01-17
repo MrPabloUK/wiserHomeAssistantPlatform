@@ -1,4 +1,4 @@
-# Drayton Wiser Home Assistant Integration v3.0.18
+# Drayton Wiser Home Assistant Integration v3.0.19
 
 ## IMPORTANT - PLEASE READ 'UPDATING TO V3.0' BELOW BEFORE UPGRADING!
 
@@ -57,7 +57,7 @@ Below is a list of the new features in this upgrade (these are in addition to th
 
 
 - System Setup
-  - Hub discovery via zeroconf. Once you add the integration via HACs and restart, HA will discover the hub and display it in the integrations page. This also uses the dns name to talk to the hub so if it changes IP you will not need to reinstall.
+  - Hub discovery via zeroconf. Once you add the integration via HACs and restart, HA will discover the hub and display it in the integrations page.
   - Support for multiple Wiser Hubs.  If you are lucky enough to have more than one house, you can add your multiple hubs to one HA instance.
 
 - Hub/System
@@ -516,11 +516,23 @@ Special thanks to all the contributors to this project.  Special shout to
 - @djbanks     : Home/Away switch (v 1.31)
 - @nofuse       : Constantly helping people out on the community thread 
 
+And many many more, please see github pull requests for more info
+
 
 
 Moving forward (post 1.9) there will be two primary branches, `master` and `dev` . Master will be the primary "production" branch and "dev" will be the branch used for development. Other branches will likely exist where we build code into and then merge into dev, which in turn gets merged into master when all is good and dandy.
 
 # Change log
+- 3.0.19
+    * Fix error on load if SmartPlug does not belong to a room - issue #209
+    * Added iTRV measured temperature to iTRV signal entity attributes (to be made sensor entities in a future release) - issue [#211](https://github.com/asantaga/wiserHomeAssistantPlatform/issues/211)
+    * Fixed issue where boost service did not default to config boost temp if no temperature_delta or temperature value passed - issue [#216](https://github.com/asantaga/wiserHomeAssistantPlatform/issues/216)
+    * Fixed issue whereby UI temp increase step was x.1 due to min value issue
+    * Added additional wifi information attributes to Hub signal entity
+    * Reverted connection to hub to use IP address instead of DNS name due to high number of issues using this method - issue #210
+    * Removed unnecessary hub update on component load during server restart
+    * Improved error handling for set_hvac and set_preset_mode if invalid option passed
+    * Bump api to 0.0.16
 - 3.0.18
     * Fix for devices that have no room association
     * Added back humidity and temp attributes to RoomStat signal sensor (to be made sensor entities in a future release)
@@ -550,6 +562,8 @@ Moving forward (post 1.9) there will be two primary branches, `master` and `dev`
     * Added last updated, mins since last updated and last update status attributes to Heating Operation sensor - issue [#191](https://github.com/asantaga/wiserHomeAssistantPlatform/issues/191)
 - 3.0
     * See above for long list of new functionality
+= 2.7 
+   * Various bug fixes and prep for V3 :-) 
 - 2.6beta6
     * Fix for broken scheduler services - sorry all!
 - 2.6beta5
