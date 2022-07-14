@@ -7,6 +7,7 @@ msparker@sky.com
 import asyncio
 from datetime import timedelta, datetime
 import logging
+import json
 import voluptuous as vol
 from wiserHeatAPIv2.wiserhub import (
     TEMP_MINIMUM,
@@ -19,6 +20,7 @@ from wiserHeatAPIv2.wiserhub import (
 
 from homeassistant.const import (
     ATTR_ENTITY_ID,
+    ATTR_MODE,
     CONF_HOST,
     CONF_MINIMUM,
     CONF_NAME,
@@ -40,6 +42,8 @@ from homeassistant.helpers.dispatcher import dispatcher_send
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.util import Throttle
 
+from .websockets import async_register_websockets
+
 from .const import (
     CONF_MOMENTS,
     CONF_SETPOINT_MODE,
@@ -54,8 +58,10 @@ from .const import (
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     MANUFACTURER,
+    WISER_CARD_FILENAMES,
     UPDATE_LISTENER,
     UPDATE_TRACK,
+    URL_BASE,
     WISER_PLATFORMS,
     WISER_SERVICES
 )
@@ -67,7 +73,8 @@ _LOGGER = logging.getLogger(__name__)
 MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=30)
 
 ATTR_FILENAME = "filename"
-ATTR_COPYTO_ENTITY_ID = "to_entity_id"
+ATTR_TO_ENTITY_ID = "to_entity_id"
+ATTR_SCHEDULE_ID = "schedule_id"
 CONF_HUB_ID = "wiser_hub_id"
 CONF_ENDPOINT = "wiser_hub_endpoint"
 SERVICE_REMOVE_ORPHANED_ENTRIES = "remove_orphaned_entries"
@@ -89,8 +96,23 @@ SET_SCHEDULE_SCHEMA = vol.Schema(
 
 COPY_SCHEDULE_SCHEMA = vol.Schema(
     {
+        vol.Required(ATTR_ENTITY_ID): cv.entity_id,
+        vol.Required(ATTR_TO_ENTITY_ID): cv.entity_ids,
+    }
+)
+
+ASSIGN_SCHEDULE_SCHEMA = vol.Schema(
+    {
+        vol.Optional(ATTR_ENTITY_ID): cv.entity_id,
+        vol.Optional(ATTR_SCHEDULE_ID): vol.Coerce(int),
+        vol.Required(ATTR_TO_ENTITY_ID): cv.entity_ids,
+    }
+)
+
+SET_DEVICE_MODE_SCHEMA = vol.Schema(
+    {
         vol.Required(ATTR_ENTITY_ID): cv.entity_ids,
-        vol.Required(ATTR_COPYTO_ENTITY_ID): cv.entity_id,
+        vol.Required(ATTR_MODE): vol.Coerce(str),
     }
 )
 
@@ -177,13 +199,15 @@ async def async_setup_entry(hass, config_entry):
             hass.config_entries.async_forward_entry_setup(config_entry, platform)
         )
 
+    await async_register_websockets(hass, data)
+
     # Initialise global services
-    def get_entity_from_entity_id(entity_id: str):
+    def get_entity_from_entity_id(entity: str):
         """Get wiser entity from entity_id"""
-        domain = entity_id.split(".", 1)[0]
+        domain = entity.split(".", 1)[0]
         entity_comp = hass.data.get("entity_components", {}).get(domain)
         if entity_comp:
-            return entity_comp.get_entity(entity_id)
+            return entity_comp.get_entity(entity)
         return None
 
     @callback
@@ -197,10 +221,13 @@ async def async_setup_entry(hass, config_entry):
                 else (hass.config.config_dir + "/schedules/schedule_" + entity_id.split(".", 1)[1] + ".yaml")
             )
             entity = get_entity_from_entity_id(entity_id)
-            if hasattr(entity, "get_schedule"):
-                getattr(entity, "get_schedule")(filename)
+            if entity:
+                if hasattr(entity, "get_schedule"):
+                    getattr(entity, "get_schedule")(filename)
+                else:
+                    _LOGGER.error(f"Cannot save schedule from entity {entity_id}.  Please see integration instructions for entities to choose")
             else:
-                _LOGGER.error(f"Cannot save schedule from entity {entity_id}.  Please see integration instructions for entities to choose")
+                _LOGGER.error(f"Invalid entity. {entity_id} does not exist in this integration")
 
     @callback
     def set_schedule(service_call):
@@ -209,49 +236,94 @@ async def async_setup_entry(hass, config_entry):
         for entity_id in entity_ids:
             filename = service_call.data[ATTR_FILENAME]
             entity = get_entity_from_entity_id(entity_id)
-            if hasattr(entity, "set_schedule"):
-                getattr(entity, "set_schedule")(filename)
+            if entity:
+                if hasattr(entity, "set_schedule"):
+                    getattr(entity, "set_schedule")(filename)
+                else:
+                    _LOGGER.error(f"Cannot set schedule for entity {entity_id}.  Please see integration instructions for entities to choose")
             else:
-                _LOGGER.error(f"Cannot set schedule for entity {entity_id}.  Please see integration instructions for entities to choose")
+                _LOGGER.error(f"Invalid entity. {entity_id} does not exist in this integration")
 
     @callback
     def copy_schedule(service_call):
         """Handle the service call"""
-        entity_ids = service_call.data[ATTR_ENTITY_ID]
-        to_entity_id = service_call.data[ATTR_COPYTO_ENTITY_ID]
-
-        if len(entity_ids) == 1:
-            from_entity = get_entity_from_entity_id(entity_ids[0])
+        entity_id = service_call.data[ATTR_ENTITY_ID]
+        to_entity_ids = service_call.data[ATTR_TO_ENTITY_ID]
+        for to_entity_id in to_entity_ids:
+            from_entity = get_entity_from_entity_id(entity_id)
             to_entity = get_entity_from_entity_id(to_entity_id)
 
-            #TODO: Validate they are on same hub - be able to copy across hubs?
-            if from_entity._data.wiserhub.system.name == to_entity._data.wiserhub.system.name:
-                if hasattr(to_entity, "_schedule") and to_entity._schedule:
-                    if hasattr(from_entity, "copy_schedule"):
-                        getattr(from_entity, "copy_schedule")(to_entity._schedule.id, to_entity._schedule.name)
-                    else:
-                        _LOGGER.error(f"Cannot copy schedule from entity {from_entity.name}.  Please see integration instructions for entities to choose")
+            if from_entity and to_entity:
+                # Check from entity is a schedule entity
+                if hasattr(from_entity, "copy_schedule"):
+                    getattr(from_entity, "copy_schedule")(to_entity)
                 else:
-                    _LOGGER.error(f"Cannot copy schedule to entity {to_entity_id}.  Please see integration instructions for entities to choose")
+                    _LOGGER.error(f"Cannot copy schedule from entity {from_entity.name}.  Please see integration instructions for entities to choose")
             else:
-                _LOGGER.error("You cannot copy schedules across different Wiser Hubs.  Download form one and upload to the other instead")
+                    _LOGGER.error(f"Invalid entity - {entity_id if not from_entity else ''}{' and ' if not from_entity and not to_entity else ''}{to_entity_id if not to_entity else ''} does not exist in this integration")
+            return False
+
+    @callback
+    def assign_schedule(service_call):
+        """Handle the service call"""
+        entity_id = service_call.data.get(ATTR_ENTITY_ID)
+        schedule_id = service_call.data.get(ATTR_SCHEDULE_ID)
+        to_entity_ids = service_call.data[ATTR_TO_ENTITY_ID]
+
+        if entity_id:
+            # Assign schedule from this entity to another
+            for to_entity_id in to_entity_ids:
+                from_entity = get_entity_from_entity_id(entity_id)
+                to_entity = get_entity_from_entity_id(to_entity_id)
+
+                if from_entity and to_entity:
+                    if hasattr(from_entity, "assign_schedule_to_another_entity"):
+                        getattr(from_entity, "assign_schedule_to_another_entity")(to_entity)
+                    else:
+                        _LOGGER.error(f"Cannot assign schedule from entity {from_entity.name}.  Please see integration instructions for entities to choose")
+                else:
+                    _LOGGER.error(f"Invalid entity - {entity_id if not from_entity else ''}{' and ' if not from_entity and not to_entity else ''}{to_entity_id if not to_entity else ''} does not exist in this integration")
+        elif schedule_id:
+            # Assign scheduel with id to this entity
+            for to_entity_id in to_entity_ids:
+                to_entity = get_entity_from_entity_id(to_entity_id)
+                if to_entity:
+                    if hasattr(to_entity, "assign_schedule_by_id"):
+                        getattr(to_entity, "assign_schedule_by_id")(schedule_id)
+                    else:
+                        _LOGGER.error(f"Cannot assign schedule to entity {to_entity.name}.  Please see integration instructions for entities to choose")
         else:
-            _LOGGER.error(f"Cannot copy schedule from multiple entities. Please select only one")
+            # Create default schedule and assign to entity
+            for to_entity_id in to_entity_ids:
+                entity = get_entity_from_entity_id(to_entity_id)
+                if hasattr(entity, "create_schedule"):
+                    getattr(entity, "create_schedule")()
+                else:
+                    _LOGGER.error(f"Cannot assign schedule to entity {to_entity.name}.  Please see integration instructions for entities to choose")
 
-
+    @callback
+    def set_device_mode(service_call):
+        """Handle the service call."""
+        entity_ids = service_call.data[ATTR_ENTITY_ID]
+        mode = service_call.data[ATTR_MODE]
+        for entity_id in entity_ids:
+            entity = get_entity_from_entity_id(entity_id)
+            if entity:
+                if hasattr(entity, "set_mode"):
+                    if mode.lower() in [option.lower() for option in entity._options]:
+                        getattr(entity, "set_mode")(mode)
+                    else:
+                        _LOGGER.error(F"{mode} is not a valid mode for this device.  Options are {entity._options}")
+                else:
+                    _LOGGER.error(f"Cannot set mode for entity {entity_id}.  Please see integration instructions for entities to choose")
+            else:
+                _LOGGER.error(f"Invalid entity. {entity_id} does not exist in this integration")
 
     @callback
     def remove_orphaned_entries_service(service):
         for entry_id in hass.data[DOMAIN]:
             hass.async_create_task(
                 data.async_remove_orphaned_entries(entry_id, service.data[CONF_HUB_ID])
-            )
-
-    @callback
-    def output_hub_json(service):
-        for entry_id in hass.data[DOMAIN]:
-            hass.async_create_task(
-                data.async_output_hub_json(entry_id, service.data[CONF_HUB_ID])
             )
 
     hass.services.async_register(
@@ -277,20 +349,42 @@ async def async_setup_entry(hass, config_entry):
 
     hass.services.async_register(
         DOMAIN,
+        WISER_SERVICES["SERVICE_ASSIGN_SCHEDULE"],
+        assign_schedule,
+        schema=ASSIGN_SCHEDULE_SCHEMA,
+    )
+
+    hass.services.async_register(
+        DOMAIN,
+        WISER_SERVICES["SERVICE_SET_DEVICE_MODE"],
+        set_device_mode,
+        schema=SET_DEVICE_MODE_SCHEMA,
+    )
+
+    hass.services.async_register(
+        DOMAIN,
         SERVICE_REMOVE_ORPHANED_ENTRIES,
         remove_orphaned_entries_service,
         schema=SELECT_HUB_SCHEMA,
     )
 
-    hass.services.async_register (
-        DOMAIN,
-        SERVICE_OUTPUT_HUB_JSON,
-        output_hub_json,
-        schema=SELECT_HUB_SCHEMA
-    )
-
     # Add hub as device
     await data.async_update_device_registry()
+
+    # Register custom cards
+    hass.http.register_static_path(
+        URL_BASE,
+        hass.config.path("custom_components/wiser/frontend"),
+        cache_headers=False
+    )
+
+    # Auto add resources if Lovelace in storage mode.  Need to add manually if in YAML mode
+    if hass.data['lovelace']['mode'] == "storage":
+        for card_filename in WISER_CARD_FILENAMES:
+            url = f"{URL_BASE}/{card_filename}"
+            resource_loaded = [res["url"] for res in hass.data['lovelace']["resources"].async_items() if res["url"] == url]
+            if not resource_loaded:
+                resource_id = await hass.data['lovelace']["resources"].async_create_item({"res_type":"module", "url":url})
 
     _LOGGER.info("Wiser Component Setup Completed")
 
@@ -310,12 +404,22 @@ async def async_unload_entry(hass, config_entry):
     :param config_entry:
     :return:
     """
+    # Unload lovelace module resource
+    if hass.data['lovelace']['mode'] == "storage":
+        for card_filename in WISER_CARD_FILENAMES:
+            url = f"{URL_BASE}/{card_filename}"
+            wiser_resources = [resource for resource in hass.data['lovelace']["resources"].async_items() if resource["url"] == url]
+            for resource in wiser_resources:
+                await hass.data['lovelace']["resources"].async_delete_item(resource.get("id"))
+
     # Deregister services
     _LOGGER.debug("Unregister Wiser Services")
     hass.services.async_remove(DOMAIN, SERVICE_REMOVE_ORPHANED_ENTRIES)
+
     hass.services.async_remove(DOMAIN, WISER_SERVICES["SERVICE_GET_SCHEDULE"])
     hass.services.async_remove(DOMAIN, WISER_SERVICES["SERVICE_SET_SCHEDULE"])
     hass.services.async_remove(DOMAIN, WISER_SERVICES["SERVICE_COPY_SCHEDULE"])
+    hass.services.async_remove(DOMAIN, WISER_SERVICES["SERVICE_SET_DEVICE_MODE"])
 
     _LOGGER.debug("Unloading Wiser Component")
     # Unload a config entry
@@ -378,11 +482,13 @@ class WiserHubHandle:
         try:
             result = await self._hass.async_add_executor_job(self.wiserhub.read_hub_data)
             if result:
-                _LOGGER.debug(f"Wiser Hub data updated - {self.wiserhub.system.name}")
+                _LOGGER.info(f"Wiser Hub data updated - {self.wiserhub.system.name}")
                 # Send update notice to all components to update
                 self.last_update_time = datetime.now()
                 self.last_update_status = "Success"
                 dispatcher_send(self._hass, f"{self.wiserhub.system.name}-HubUpdateMessage")
+                # Fire event on successfull update
+                dispatcher_send(self._hass,"wiser_update_received")
                 return True
 
             _LOGGER.error(f"Unable to update from Wiser hub - {self.wiserhub.system.name}")
@@ -396,8 +502,6 @@ class WiserHubHandle:
         self.last_update_status = "Failed"
         dispatcher_send(self._hass, f"{self.wiserhub.system.name}-HubUpdateFailedMessage")
         return False
-
-
 
     @property
     def unique_id(self):
@@ -456,19 +560,3 @@ class WiserHubHandle:
                 ):
                     _LOGGER.info(f"Removed {device_id}")
                     device_registry.async_remove_device(device_id)
-
-    @callback
-    async def async_output_hub_json(self, entry_id, wiser_hub_id: str):
-        """Output hub jsondata from endpoint"""
-        api = self._hass.data[DOMAIN][entry_id]["data"]
-        wiserhub = api.wiserhub
-
-        if wiserhub.system.name == wiser_hub_id:
-            _LOGGER.info(f"Outputing json data from {wiser_hub_id}")
-            for endpoint in ['domain','network','schedules']:
-                if await self._hass.async_add_executor_job(
-                    wiserhub.output_raw_hub_data, endpoint, f"{endpoint}-{datetime.now().strftime('%Y%m%d-%H%M%S')}", self._hass.config.config_dir
-                ):
-                    _LOGGER.info(f"Written hub {endpoint} data to the wiser_data subdirectory in your config directory")
-
-            
