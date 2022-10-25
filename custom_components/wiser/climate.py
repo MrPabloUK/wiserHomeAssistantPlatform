@@ -64,7 +64,7 @@ WISER_PRESETS = {"Advance Schedule": 0, "Cancel Overrides": 0}
 WISER_PRESETS.update(WISER_BOOST_PRESETS)
 
 HVAC_MODE_WISER_TO_HASS = {
-    "Auto": HVACMode.AUTO,
+    "Auto": HVACMode.HEAT,
     "Manual": HVACMode.HEAT,
     "Off": HVACMode.OFF,
 }
