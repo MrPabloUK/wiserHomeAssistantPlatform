@@ -1,6 +1,8 @@
-# Wiser Home Assistant Integration v3.2.0
+# Wiser Home Assistant Integration v3.2.1
 
-[![hacs_badge](https://img.shields.io/badge/HACS-Default-orange.svg)](https://github.com/hacs/integration)
+[![hacs_badge](https://img.shields.io/badge/HACS-Default-orange.svg?style=for-the-badge)](https://github.com/hacs/integration)
+[![downloads](https://shields.io/github/downloads/asantaga/wiserHomeAssistantPlatform/latest/total?style=for-the-badge)](https://github.com/asantaga/wiserHomeAssistantPlatform)
+[![version](https://shields.io/github/v/release/asantaga/wiserHomeAssistantPlatform?style=for-the-badge)](https://github.com/asantaga/wiserHomeAssistantPlatform)
 
 This repository contains a Home Assistant integration for the awesome Drayton Wiser Heating solution.  This integration only works locally with your wiser hub and does not rely on the cloud.
 
@@ -561,12 +563,19 @@ There are two primary branches for this integration, `master` and `dev` . Master
 
 ## Change log
 
+- 3.2.1
+  - Bump api to v0.1.7 to fix error with UFH controller - issue [#318](https://github.com/asantaga/wiserHomeAssistantPlatform/issues/318)
+  - Improve setup handling and logging if hub does not respond on initial request - issue [#317](https://github.com/asantaga/wiserHomeAssistantPlatform/issues/317)
+  - Python 3.9 compatibility
+
 - 3.2.0
   - Utilise async api aioWiserHeatAPI
   - Modify for fully async functionality
   - Utilise the data update coordinator of HA
   - Adjustment of battery levels to be more reflective of remaining usable capacity
   - Added schedule_name parameter option to assign schedule service
+  - Added All special days support in schedule files
+  - Added new Set Schedule From String service that supports templating
 
 - 3.1.7
   - Bump api to 0.0.42 to fix hub wifi drop outs
