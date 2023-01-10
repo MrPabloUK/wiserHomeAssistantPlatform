@@ -1,4 +1,4 @@
-# Wiser Home Assistant Integration v3.2.2
+# Wiser Home Assistant Integration v3.2.3
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Default-orange.svg?style=for-the-badge)](https://github.com/hacs/integration)
 [![downloads](https://shields.io/github/downloads/asantaga/wiserHomeAssistantPlatform/latest/total?style=for-the-badge)](https://github.com/asantaga/wiserHomeAssistantPlatform)
@@ -24,6 +24,7 @@ For more information checkout the AMAZING community thread available on
 - New service to set a schedule from a string that supports templating.  See [Set Schedule From String](https://github.com/asantaga/wiserHomeAssistantPlatform/blob/master/docs/services.md#set-schedule-from-string)
 - Schedule card options to show IDs and list view
 - Events and automation triggers. See [Events & Triggers](#events--triggers)
+- Support of Heating Actuator floor temp sensors
 
 ## Contents
 
@@ -157,7 +158,6 @@ In order to download this file do the following:
 - **Events & Triggers**
   - A wiser_event event name with a type of boosted, started_heating and stopped_heating.  See [Events & Triggers](#events--triggers)
 
-
 - **Lovelace UI Cards**
   - Schedule Card to add, edit, delete and rename schedules
   - Zigbee Network Card to display your Wiser zigbee network connectivity
@@ -193,15 +193,17 @@ This method is best used when you want to play with the "latest and greatest" fr
 1. On your server clone the github repository into a suitable directory using the following command
    git clone `https://github.com/asantaga/wiserHomeAssistantPlatform.git`
 
-2. Switch to either the master or dev branch as per your requirements.
+2. Change to the wiserHomeAssistantPlatform directory
+
+3. Switch to either the master or dev branch as per your requirements (it will default to master branch after cloning).
    e.g.
    `git checkout master`
    or
    `git checkout dev`
 
-3. Create a `custom_components` directory within your Home Assistant directory config directory
+4. Create a `custom_components` directory (if it does not already exist) within your Home Assistant config directory
 
-4. Within the custom components directory copy the wiser folder, from the directory where you github cloned the wiser component, to your installations ```custom components``` directory.
+5. Within the wiserHomeAssistantPlatform/custom_components directory copy the `wiser` folder to your HA installations `custom components` directory, so that you have custom_components/wiser directory with the files in.
 
 ## Configuration
 
@@ -483,7 +485,6 @@ You can either provide an entity ID to reference the schedule attached to that e
 - Lights - use the Light Mode select entity for the light eg. select.lounge_light_mode
 - Shutters - use the Shutter Mode select entity for the shutter eg. select.lounge_blinds_mode
 
-
 ## Events & Triggers
 
 The integration provides a wiser_event event name with types of boosted, started_heating, stopped_heating, target_temperature_increased and target_temperature_decreased, passing also the entity (read climate entity/room) that caused the event.  This can be used in 1 or 2 ways.
@@ -625,10 +626,25 @@ There are two primary branches for this integration, `master` and `dev` . Master
 
 ## Change log
 
+- 3.2.3
+  - Bump api to v1.0.2
+  - Add event data to wiser events - issue [#324](https://github.com/asantaga/wiserHomeAssistantPlatform/issues/324)
+  - Fix error setting away mode action for shutters - issue [#329](https://github.com/asantaga/wiserHomeAssistantPlatform/issues/329)
+  - Add support for Heating Actuator floor temp sensor - issue [#334](https://github.com/asantaga/wiserHomeAssistantPlatform/issues/334)
+  - Improve error handling/notification for setting schedule via YAML file - issue [#325](https://github.com/asantaga/wiserHomeAssistantPlatform/issues/325)
+  - Add service for setting opentherm parameters
+  - Fix beta issue creating floor temp sensor when not fitted due to odd hub data - issue [#340](https://github.com/asantaga/wiserHomeAssistantPlatform/issues/340)
+  - Fix beta issue of error when calling boost all
+  - Fix beta issue of error setting schedules from YAML file
+  - Added LTS Floor Temp Sensor for Heating Actuators
+
+
 - 3.2.2
   - Bump api to v0.1.8
+  - v1.1.7 of schedule card
   - Add list view option to Schedule Card
   - Add Show ID option to schedule card standard view
+  - v1.1.0 of zigbee card
   - Fixed - Update status attribute does not show when failed
   - Fixed - Error if heating actuator has no assigned room - Issue [#321](https://github.com/asantaga/wiserHomeAssistantPlatform/issues/321)
   - Added events for room started/stopped heating, target temperature increased/decreased and boosted
