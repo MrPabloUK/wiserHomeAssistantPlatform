@@ -79,7 +79,7 @@ HVAC_MODE_WISER_TO_HASS = {
 }
 
 HVAC_MODE_HASS_TO_WISER = {
-    HVACMode.AUTO: "Auto",
+    #HVACMode.AUTO: "Auto",
     HVACMode.HEAT: "Auto",
     HVACMode.OFF: "Off",
 }
