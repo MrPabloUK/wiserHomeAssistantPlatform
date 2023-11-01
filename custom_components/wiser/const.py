@@ -10,7 +10,7 @@ DATA_WISER_CONFIG = "wiser_config"
 URL_BASE = "/wiser"
 WISER_CARD_FILENAMES = ["wiser-schedule-card.js", "wiser-zigbee-card.js"]
 
-VERSION = "3.4.0"
+VERSION = "3.3.9"
 WISER_PLATFORMS = [
     "climate",
     "sensor",
@@ -29,6 +29,7 @@ CUSTOM_DATA_STORE = "/.storage/wiser_custom_data"
 
 # Hub
 MANUFACTURER = "Drayton Wiser"
+MANUFACTURER_SCHNEIDER = "Schneider Electric"
 ENTITY_PREFIX = "Wiser"
 ROOM = "Room"
 

@@ -7,19 +7,19 @@ from homeassistant.components.light import (
     ColorMode,
     LightEntity,
 )
-from homeassistant.core import callback
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DATA, DOMAIN, MANUFACTURER
+from .const import DATA, DOMAIN, MANUFACTURER_SCHNEIDER
 from .helpers import get_device_name, get_identifier, get_unique_id
 from .schedules import WiserScheduleEntity
 
-MANUFACTURER = "Schneider Electric"
+MANUFACTURER = MANUFACTURER_SCHNEIDER
 
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup_entry(hass, config_entry, async_add_entities):
+async def async_setup_entry(hass: HomeAssistant, config_entry, async_add_entities):
     """Add the Wiser System Switch entities."""
     data = hass.data[DOMAIN][config_entry.entry_id][DATA]
 
@@ -37,7 +37,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
 class WiserLight(CoordinatorEntity, LightEntity, WiserScheduleEntity):
     """WiserLight ClientEntity Object."""
 
-    def __init__(self, coordinator, light_id):
+    def __init__(self, coordinator, light_id) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
         self._data = coordinator
@@ -94,11 +94,6 @@ class WiserLight(CoordinatorEntity, LightEntity, WiserScheduleEntity):
             "manufacturer": MANUFACTURER,
             "model": self._data.wiserhub.devices.get_by_id(self._device_id).model,
             "sw_version": self._device.firmware_version,
-            "serial_number": self._data.wiserhub.devices.get_by_id(
-                self._device_id
-            ).serial_number,
-            "product_type": self._device.product_type,
-            "product_identifier": self._device.product_identifier,
             "via_device": (DOMAIN, self._data.wiserhub.system.name),
         }
 
@@ -170,10 +165,6 @@ class WiserLight(CoordinatorEntity, LightEntity, WiserScheduleEntity):
 
 class WiserDimmableLight(WiserLight):
     """A Class for an Wiser light entity."""
-
-    def __init__(self, data, light_id):
-        """Initialize the sensor."""
-        super().__init__(data, light_id)
 
     @property
     def supported_color_modes(self):

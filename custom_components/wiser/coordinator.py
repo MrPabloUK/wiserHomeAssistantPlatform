@@ -11,7 +11,6 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from homeassistant.const import (
     CONF_HOST,
-    CONF_NAME,
     CONF_PASSWORD,
     CONF_SCAN_INTERVAL,
 )
@@ -66,7 +65,6 @@ class WiserData:
 
 
 class WiserUpdateCoordinator(DataUpdateCoordinator):
-
     config_entry: ConfigEntry
 
     def __init__(self, hass: HomeAssistant, config_entry: ConfigEntry) -> None:
@@ -125,6 +123,14 @@ class WiserUpdateCoordinator(DataUpdateCoordinator):
             enable_automations=self.enable_automations_passive_mode,
         )
 
+        # Initialise api parameters
+        self.wiserhub.api_parameters.stored_manual_target_temperature_alt_source = (
+            self.previous_target_temp_option
+        )
+        self.wiserhub.api_parameters.passive_mode_increment = (
+            self.passive_temperature_increment
+        )
+
     async def async_update_data(self) -> WiserData:
         try:
             await self.wiserhub.read_hub_data()
@@ -144,7 +150,7 @@ class WiserUpdateCoordinator(DataUpdateCoordinator):
             WiserHubRESTError,
         ) as ex:
             self.last_update_status = "Failed"
-            _LOGGER.error(ex)
+            _LOGGER.warning(ex)
         except Exception as ex:
             self.last_update_status = "Failed"
             _LOGGER.error(ex)
