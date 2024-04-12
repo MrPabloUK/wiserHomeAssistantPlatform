@@ -2,7 +2,7 @@ import asyncio
 import logging
 
 from .const import DATA, DOMAIN, MANUFACTURER
-from .helpers import get_device_name, get_identifier, get_unique_id
+from .helpers import get_device_name, get_identifier, get_unique_id, hub_error_handler
 
 from aioWiserHeatAPI.wiserhub import TEMP_MINIMUM, TEMP_MAXIMUM
 
@@ -127,6 +127,7 @@ class WiserAwayModeTempNumber(CoordinatorEntity, NumberEntity):
         """Return device value"""
         return self._value
 
+    @hub_error_handler
     async def async_set_native_value(self, value: float) -> None:
         """Set new value."""
         _LOGGER.debug(f"Setting {self._name} to {value}C")
@@ -140,7 +141,7 @@ class WiserFloorTempSensorNumber(CoordinatorEntity, NumberEntity):
         super().__init__(coordinator)
         self._data = coordinator
         self._actuator = actuator
-        self._name = type
+        self._name = device_type
         self._value = getattr(self._actuator.floor_temperature_sensor, self._name)
 
         # Support prior to 2022.7.0 Versions without deprecation warning
@@ -218,6 +219,7 @@ class WiserFloorTempSensorNumber(CoordinatorEntity, NumberEntity):
         """Return device value"""
         return self._value
 
+    @hub_error_handler
     async def async_set_native_value(self, value: float) -> None:
         """Set new value."""
         _LOGGER.debug(f"Setting {self._name} to {value}C")
