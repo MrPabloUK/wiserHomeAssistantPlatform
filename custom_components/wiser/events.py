@@ -59,6 +59,7 @@ WISER_COMMON_EVENT_DATA = {
         "current_temperature",
         "current_target_temperature",
         "is_boosted",
+        "is_heating",
         "boost_time_remaining",
     ],
 }
@@ -66,7 +67,11 @@ WISER_COMMON_EVENT_DATA = {
 
 def fire_events(hass: HomeAssistant, entity_id: str, old_state: dict, new_state: dict):
     for event in WISER_EVENTS:
-        if hasattr(old_state, event[CONF_ATTRIBUTE]):
+        if (
+            hasattr(old_state, event[CONF_ATTRIBUTE])
+            and getattr(new_state, event[CONF_ATTRIBUTE]) is not None
+            and getattr(old_state, event[CONF_ATTRIBUTE]) is not None
+        ):
             if (
                 (
                     event[CONF_VALUE] == VALUE_DIFF

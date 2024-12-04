@@ -1,33 +1,106 @@
-"""
-Drayton Wiser Compoment for Wiser System.
+"""Drayton Wiser Compoment for Wiser System.
 
 https://github.com/asantaga/wiserHomeAssistantPlatform
 msparker@sky.com
 """
+
 import asyncio
 import logging
 
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC
 
-from .coordinator import WiserUpdateCoordinator
-from .frontend import WiserCardRegistration
-from .helpers import get_device_name, get_identifier, get_instance_count
-from .services import async_setup_services
-from .websockets import async_register_websockets
-
 from .const import (
+    CONF_AUTOMATIONS_HW_AUTO_MODE,
+    CONF_AUTOMATIONS_HW_CLIMATE,
+    CONF_AUTOMATIONS_HW_HEAT_MODE,
+    CONF_AUTOMATIONS_HW_SENSOR_ENTITY_ID,
+    CONF_AUTOMATIONS_PASSIVE,
+    CONF_AUTOMATIONS_PASSIVE_TEMP_INCREMENT,
+    CONF_DEPRECATED_HW_TARGET_TEMP,
     DATA,
     DOMAIN,
     MANUFACTURER,
     UPDATE_LISTENER,
     WISER_PLATFORMS,
     WISER_SERVICES,
+    HWCycleModes,
 )
+from .coordinator import WiserUpdateCoordinator
+from .frontend import WiserCardRegistration
+from .helpers import get_device_name, get_identifier, get_instance_count
+from .services import async_setup_services
+from .websockets import async_register_websockets
 
 _LOGGER = logging.getLogger(__name__)
+
+
+async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
+    """Migrate old entry."""
+    _LOGGER.debug(
+        "Migrating configuration from version %s.%s",
+        config_entry.version,
+        config_entry.minor_version,
+    )
+
+    if config_entry.version == 1:
+        new_options = {**config_entry.options}
+        if config_entry.minor_version < 3:
+            # move passive mode options into new section
+            if new_options.get(CONF_AUTOMATIONS_PASSIVE) is not None:
+                # detect if failed last upgrade to minor version 2
+                if isinstance(new_options.get(CONF_AUTOMATIONS_PASSIVE), bool):
+                    new_options[CONF_AUTOMATIONS_PASSIVE] = {
+                        CONF_AUTOMATIONS_PASSIVE: new_options[CONF_AUTOMATIONS_PASSIVE]
+                    }
+                    for item in [
+                        CONF_AUTOMATIONS_PASSIVE_TEMP_INCREMENT,
+                    ]:
+                        if new_options.get(item):
+                            new_options[CONF_AUTOMATIONS_PASSIVE][item] = new_options[
+                                item
+                            ]
+                            del new_options[item]
+
+            # hw climate
+            if new_options.get(CONF_AUTOMATIONS_HW_CLIMATE) is not None:
+                # detect if failed last upgrade to minor version 2
+                if isinstance(new_options.get(CONF_AUTOMATIONS_HW_CLIMATE), bool):
+                    if new_options.get(CONF_DEPRECATED_HW_TARGET_TEMP):
+                        del new_options[CONF_DEPRECATED_HW_TARGET_TEMP]
+
+                    new_options[CONF_AUTOMATIONS_HW_CLIMATE] = {
+                        CONF_AUTOMATIONS_HW_CLIMATE: new_options[
+                            CONF_AUTOMATIONS_HW_CLIMATE
+                        ]
+                    }
+                    for item in [
+                        CONF_AUTOMATIONS_HW_AUTO_MODE,
+                        CONF_AUTOMATIONS_HW_HEAT_MODE,
+                        CONF_AUTOMATIONS_HW_SENSOR_ENTITY_ID,
+                    ]:
+                        if value := new_options.get(item):
+                            if value == "Normal":
+                                value = HWCycleModes.CONTINUOUS
+                            if value == "Override":
+                                value = HWCycleModes.ONCE
+                            new_options[CONF_AUTOMATIONS_HW_CLIMATE][item] = value
+                            del new_options[item]
+
+        hass.config_entries.async_update_entry(
+            config_entry, options=new_options, minor_version=3, version=1
+        )
+
+    _LOGGER.debug(
+        "Migration to configuration version %s.%s successful",
+        config_entry.version,
+        config_entry.minor_version,
+    )
+
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, config_entry):
@@ -50,10 +123,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry):
     }
 
     # Setup platforms
-    for platform in WISER_PLATFORMS:
-        hass.async_add_job(
-            hass.config_entries.async_forward_entry_setup(config_entry, platform)
-        )
+    await hass.config_entries.async_forward_entry_setups(config_entry, WISER_PLATFORMS)
 
     # Setup websocket services for frontend cards
     await async_register_websockets(hass, coordinator)
@@ -69,7 +139,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry):
     await cards.async_register()
 
     _LOGGER.info(
-        f"Wiser Component Setup Completed ({coordinator.wiserhub.system.name})"
+        "Wiser Component Setup Completed (%s)", coordinator.wiserhub.system.name
     )
     return True
 
@@ -99,7 +169,7 @@ async def _async_update_listener(hass: HomeAssistant, config_entry):
 async def async_remove_config_entry_device(
     hass: HomeAssistant, config_entry, device_entry
 ) -> bool:
-    """Delete device if not entities"""
+    """Delete device if not entities."""
     if device_entry.model == "Controller":
         _LOGGER.error(
             "You cannot delete the Wiser Controller using device delete.  Please remove the integration instead"
@@ -109,7 +179,7 @@ async def async_remove_config_entry_device(
 
 
 async def async_unload_entry(hass: HomeAssistant, config_entry):
-    """Unload a config entry"""
+    """Unload a config entry."""
 
     if get_instance_count(hass) == 0:
         # Unload lovelace module resource if only instance
@@ -119,7 +189,7 @@ async def async_unload_entry(hass: HomeAssistant, config_entry):
 
         # Deregister services if only instance
         _LOGGER.debug("Unregister Wiser services")
-        for k, service in WISER_SERVICES.items():
+        for service in WISER_SERVICES.values():
             hass.services.async_remove(DOMAIN, service)
 
     _LOGGER.debug("Unload Wiser integration platforms")

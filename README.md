@@ -1,4 +1,4 @@
-# Wiser Home Assistant Integration v3.4.6
+# Wiser Home Assistant Integration v3.4.14
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Default-orange.svg?style=for-the-badge)](https://github.com/hacs/integration)
 [![downloads](https://shields.io/github/downloads/asantaga/wiserHomeAssistantPlatform/latest/total?style=for-the-badge)](https://github.com/asantaga/wiserHomeAssistantPlatform)
@@ -23,7 +23,66 @@ For more information checkout the AMAZING community thread available on
 - Added PowerTagE support
 - Climate entity for controlling hot water with external tank temp sensor
 
+## Installing
+
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=asantaga&repository=wiserHomeAssistantPlatform&category=integration)
+
 ## Change log
+
+- v3.4.14
+  - Fixed issue causing integration not to load in some circumstances due to failed config entry migration - issue #539
+  - Added binary sensor active state sensor
+
+- v3.4.13
+  - Added support for PowerTag C - issue #528
+  - BREAKING CHANGE - refactored HW climate automation - issues #481, #490.  See wiki for updated instructions
+  - Added illuminance, humidity and temp sensors to devices with threshold sensors - issue #531
+  - Added support for 2 gang light switch - issue #529
+  - Added interacts with room climate switch to supported devices
+  - Fixed support for Binary sensors with threshold sensors - issue #530
+  - Fixed incompatibility with Python3.13 and HA2024.12 - issue #535
+  - Fixed events not correctly firing for climate changes - issue #526
+  - Fixed error when saving schedule with an off slot - issue #536
+  - Changed all hot water related sensors to now belong to a hot water device
+  - Bumped aiowiserheatapi to v1.6.3
+
+- v3.4.12
+  - Fixed issue assigning schedules with non ascii characters in name - issue #509
+  - Fixed error when using HotWater climate automation - issue #517
+  - Fixed wiser http path not registering - issue #521
+  - Fixed issue causing integration to fail loading with BoilerInterface - issue #523
+  - Added support for ButtonPanel (Wiser Odace) - issue #524
+  - Bump api to v1.5.19 to resolve issues #509, #523, #524
+
+
+- v3.4.11
+  - Bump api to v1.5.18 to reduce Payload not completed errors
+  - Fix typo in dimable light color mode - issue #518
+
+- v3.4.10
+  - Fixed error loading sensors - issue #513
+
+- v3.4.9 (Pulled)
+  - Fixed smoke alarm naming issue - issue #496
+  - Set humidity to Unavailable if no value - issue #503
+  - Add support for BoilerInterface - issue #499
+  - Add support for WindowDoorSensor for v2 hub
+  - Add support for CFMT device for v2 hub - issue #507
+
+- v3.4.8
+  - Fix deprecation warning no waiting on setups - [#485](https://github.com/asantaga/wiserHomeAssistantPlatform/issues/485)
+  - Fix color mode issue - [#479](https://github.com/asantaga/wiserHomeAssistantPlatform/issues/479)
+  - Added smoke alarm sensors - [#457](https://github.com/asantaga/wiserHomeAssistantPlatform/issues/457)
+  - Fixed missing save layout button in zigbee card - [#488](https://github.com/asantaga/wiserHomeAssistantPlatform/issues/488)
+
+- v3.4.7
+  - Bump api to v1.5.14 to improve handling of hub connection errors
+  - Fix - improve handling of hub update failures - [#434](https://github.com/asantaga/wiserHomeAssistantPlatform/issues/434)
+  - Fix - set entity values to unknown if not provided in the hub update - [#471](https://github.com/asantaga/wiserHomeAssistantPlatform/issues/471)
+  - Fix - removed use of async_add_job - [#463](https://github.com/asantaga/wiserHomeAssistantPlatform/issues/463)
+  - Fix - add color modes to lights - [#458](https://github.com/asantaga/wiserHomeAssistantPlatform/issues/458)
+  - Fix - use default boost temp with presets - [#467](https://github.com/asantaga/wiserHomeAssistantPlatform/issues/467)
+  - Add ability to unassign a schedule via the assign schedule service - [#470](https://github.com/asantaga/wiserHomeAssistantPlatform/issues/470)
 
 - v3.4.6
   - Bump api to v1.5.13 to improve retry handling to include hub conneciton error
